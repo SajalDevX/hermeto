@@ -69,14 +69,45 @@ class PnpmLock(UserDict):
             optional = importer.get("optionalDependencies", {})
 
             for name, data in {**dependencies, **optional}.items():
-                version = data["version"]
-                # For JSR dependencies, version is not a semver, it's the full lockfile package ID.
-                if version.startswith(JSR_REGISTRY_PREFIX):
-                    ids.append(version)
-                else:
-                    ids.append(f"{name}@{version}")
+                ids.append(dependency_path(name, data["version"]))
 
         return ids
+
+
+def dependency_path(name: str, reference: str) -> str:
+    """
+    Return the lockfile package ID that a dependency reference points to.
+
+    Aliased dependencies (npm: and jsr: specifiers) reference the real package ID
+    instead of a bare version. Mirrors pnpm's refToRelative:
+    https://github.com/pnpm/pnpm/blob/46fd26afc9926b4391636a851ae32493f9b2c9ff/deps/path/src/index.ts
+
+    >>> dependency_path("foo", "1.0.0")
+    'foo@1.0.0'
+    >>> dependency_path("foo", "1.0.0(bar@2.0.0)")
+    'foo@1.0.0(bar@2.0.0)'
+    >>> dependency_path("foo", "bar@1.0.0")
+    'bar@1.0.0'
+    >>> dependency_path("foo", "@scope/bar@1.0.0")
+    '@scope/bar@1.0.0'
+    >>> dependency_path("foo", "https://example.com/@scope/foo-1.0.0.tgz")
+    'foo@https://example.com/@scope/foo-1.0.0.tgz'
+    """
+    if reference.startswith("@"):
+        return reference
+
+    at_index = reference.find("@")
+    if at_index == -1:
+        return f"{name}@{reference}"
+
+    colon_index = reference.find(":")
+    bracket_index = reference.find("(")
+    if (colon_index == -1 or at_index < colon_index) and (
+        bracket_index == -1 or at_index < bracket_index
+    ):
+        return reference
+
+    return f"{name}@{reference}"
 
 
 @dataclass(frozen=True)

@@ -360,3 +360,49 @@ def test_find_non_dev_dependencies(tmp_path: Path) -> None:
         "workspace-runtime-dep@2.30.1",
     }
     assert _find_non_dev_dependencies(lockfile) == expected
+
+
+def test_find_non_dev_dependencies_through_aliases(tmp_path: Path) -> None:
+    lockfile = PnpmLock(
+        path=tmp_path,
+        data={
+            "lockfileVersion": "9.0",
+            "importers": {
+                ".": {
+                    "dependencies": {
+                        "aliased-dep": {
+                            "specifier": "npm:real-dep@^1.0.0",
+                            "version": "real-dep@1.0.0",
+                        },
+                        "@std/path": {
+                            "specifier": "jsr:^1.0.8",
+                            "version": "@jsr/std__path@1.0.8",
+                        },
+                    },
+                },
+            },
+            "snapshots": {
+                "real-dep@1.0.0": {
+                    "dependencies": {
+                        "string-width-cjs": "string-width@4.2.3",
+                        "scoped-alias": "@scope/peer-dep@2.0.0(peer@1.0.0)",
+                    },
+                },
+                "string-width@4.2.3": {
+                    "dependencies": {"ansi-regex": "5.0.1"},
+                },
+                "@scope/peer-dep@2.0.0(peer@1.0.0)": {},
+                "ansi-regex@5.0.1": {},
+                "@jsr/std__path@1.0.8": {},
+            },
+        },
+    )
+
+    expected = {
+        "real-dep@1.0.0",
+        "string-width@4.2.3",
+        "@scope/peer-dep@2.0.0",
+        "ansi-regex@5.0.1",
+        "@jsr/std__path@1.0.8",
+    }
+    assert _find_non_dev_dependencies(lockfile) == expected

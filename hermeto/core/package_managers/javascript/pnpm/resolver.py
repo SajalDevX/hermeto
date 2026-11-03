@@ -26,6 +26,7 @@ from hermeto.core.package_managers.javascript.pnpm.project import (
     JSR_REGISTRY_URL,
     PnpmLock,
     PnpmPackage,
+    dependency_path,
 )
 from hermeto.core.package_managers.javascript.yarn_classic.workspaces import (
     ensure_no_path_leads_out,
@@ -234,7 +235,7 @@ def _find_non_dev_dependencies(lockfile: PnpmLock) -> set[str]:
         transitive_optional = current_snapshot.get("optionalDependencies", {})
 
         for name, version in {**transitive_dependencies, **transitive_optional}.items():
-            new_id = f"{name}@{version}"
+            new_id = dependency_path(name, version)
             if new_id not in seen:
                 seen.add(new_id)
                 queue.append(new_id)
